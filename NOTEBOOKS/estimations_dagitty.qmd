@@ -1,0 +1,139 @@
+---
+title: "Efectos total y directo en R (`dagitty`)"
+format: 
+  html:
+    highlight: zenburn
+    theme: cerulean
+    toc: true
+    toc_float: true
+    self-contained: true
+---
+
+# Mock data
+
+```{r}
+#| warning: FALSE
+library(tidyverse, quietly = TRUE, warn.conflicts = FALSE)
+
+N <- 1000
+
+set.seed(2025)
+
+df <- tibble(
+  X = rnorm(N),
+  Z =2*X + rnorm(N),
+  Y = 2*X + 3*Z + rnorm(N)
+)
+```
+
+```{r}
+the_dag <- 'dag {
+X -> Y
+X -> Z
+Z -> Y
+}'
+```
+
+```{r}
+library(dagitty)
+
+dag <- dagitty(the_dag)
+
+plot(dag)
+```
+
+```{r}
+# Find adjustment for total effect
+adjustment_sets <- adjustmentSets(dag, "X", "Y", effect = "total")
+adjustment_sets
+```
+
+```{r}
+# Find adjustment for direct effect
+adjustment_sets <- adjustmentSets(dag, "X", "Y", effect = "direct")
+adjustment_sets
+```
+
+```{r}
+# Fit a linear regression model Y ~ X (for total effect)
+lm_total <- lm(Y ~ X, data = df)
+summary(lm_total)
+```
+
+```{r}
+# Fit a linear regression model Y ~ X + Z (for direct effect)
+lm_direct <- lm(Y ~ X + Z, data = df)
+summary(lm_direct)
+```
+
+# Más complicado: churn mock data
+
+```{r}
+the_dag <- 'dag {
+bb="0,0,1,1"
+age [pos="0.077,0.107"]
+churn_risk_score [adjusted,pos="0.193,0.717"]
+churned [outcome,pos="0.603,0.867"]
+complaints [pos="0.292,0.499"]
+flag_unsatisfied [pos="0.361,0.634"]
+gender [pos="0.171,0.104"]
+household_size [pos="0.460,0.094"]
+income [pos="0.272,0.103"]
+monthly_consumption [pos="0.422,0.259"]
+payment_history [pos="0.247,0.266"]
+post_intervention_satisfaction [pos="0.621,0.700"]
+region [pos="0.361,0.099"]
+satisfaction [pos="0.368,0.497"]
+tenure [pos="0.176,0.268"]
+treatment [exposure,pos="0.487,0.741"]
+age -> payment_history
+age -> tenure
+churn_risk_score -> churned
+churn_risk_score -> flag_unsatisfied
+churn_risk_score -> treatment
+churned -> post_intervention_satisfaction
+complaints -> churn_risk_score
+flag_unsatisfied -> treatment
+household_size -> monthly_consumption
+income -> monthly_consumption
+income -> payment_history
+income -> satisfaction
+income -> treatment
+payment_history -> churn_risk_score
+payment_history -> complaints
+payment_history -> satisfaction
+satisfaction -> churn_risk_score
+satisfaction -> complaints
+tenure -> churn_risk_score
+treatment -> churned
+treatment -> post_intervention_satisfaction
+}'
+```
+
+```{r}
+dag <- dagitty(the_dag)
+
+plot(dag)
+```
+
+```{r}
+# Find adjustment for total effect
+adjustment_sets <- adjustmentSets(dag, "treatment", "churned", effect = "total")
+adjustment_sets
+```
+
+```{r}
+# Find adjustment for direct effect
+adjustment_sets <- adjustmentSets(dag, "treatment", "churned", effect = "direct")
+adjustment_sets
+```
+
+```{r}
+df_churn = readr::read_csv("../DATA/churn_mock_data.csv")
+```
+
+```{r}
+# Fit a linear regression model (for total = direct effect)
+lm_total <- lm(churned ~ treatment + churn_risk_score, data = df_churn)
+summary(lm_total)
+```

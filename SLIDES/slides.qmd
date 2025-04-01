@@ -1,0 +1,423 @@
+---
+title: "Inferencia causal"
+subtitle: "De la predicción al efecto"
+author: "Miguel Conde"
+date: "2025/02/07"
+format: 
+  revealjs:
+    embed-resources: true
+    scrollable: true
+    navigation-mode: vertical
+---
+
+# Panorama actual de la inferencia causal
+
+## Datos experimentales
+
++ Proceden de estudios donde el investigador controla explícitamente la asignación del tratamiento mediante la aleatorización.
+
++ **Ventaja**: asegura que las variables observadas y no observadas estén balanceadas entre grupos, facilitando la inferencia causal directa.
+
++ Ejemplo: Ensayo clínico controlado, test A/B en marketing digital.
+
+## Experimentos naturales
+
++ Eventos externos al investigador generan una asignación casi aleatoria del tratamiento.
+
++ Ejemplos clásicos: loterías, cambios regulatorios repentinos, reformas políticas o económicas inesperadas.
+
+## Datos observacionales
+
++ La asignación del tratamiento no está controlada por el investigador, por lo que existen sesgos (confounding) debido a variables confundidoras.
+
++ Ejemplo: estudio de la relación entre fumar y cáncer usando registros médicos, efectos del consumo de un alimento en la salud en datos históricos.
+
+## ¿Qué es un experimento randomizado?
+
++ Es un experimento en el que la asignación al grupo de tratamiento o control se realiza mediante un proceso aleatorio.
+
++ Esto asegura la independencia estadística del tratamiento respecto a otras variables que podrían sesgar el análisis.
+
++ La randomización garantiza comparabilidad entre grupos, permitiendo atribuir causalmente las diferencias observadas al tratamiento.
+
+## Métodos para datos experimentales 
+
++ **Diferencias en diferencias (Diff-in-Diff)**:
+  + Compara la evolución temporal del resultado en grupos tratados y no tratados.
+  + Adecuado cuando la asignación del tratamiento varía en el tiempo.
+
++ **Grupos sintéticos de control (Synthetic Control)**:
+  + Construye un grupo control artificial combinando unidades no tratadas para simular lo que habría ocurrido sin tratamiento.
+  + Útil cuando hay pocos individuos tratados y se necesita un control específico y detallado.
+
+## Conclusiones
+
++ Los métodos experimentales permiten una inferencia causal más robusta.
+
++ Los datos observacionales requieren métodos adicionales y supuestos claramente explicitados: **los datos *solos* no bastan para inferir causalidad**.
+
+<br>
+
+<center>
+**¿Qué métodos existen para inferir causalidad en datos observacionales?**
+</center>
+
+# Motivación
+
+## Clientes en riesgo de fuga {.smaller}
+
+::: columns
+::: {.column width="50%"}
+Imagina que trabajamos en una empresa que proporciona algún tipo de suministro básico a los hogares. Cuando se detecta un cliente insatisfecho, como puede estar en riesgo de fuga, se le pasa a una unidad especial de Atención al Cliente, la Unidad de Recuperación. En función de una serie de variables socio-economico-culturales y del historico del cliente se decide si aplicarle una estrategia de recuperación o no. En algunos casos la intervención tiene éxito y en otras no.
+
+**¿Cómo saber si esta estrategia funciona?**
+([NOTEBOOK mock data](c:/Users/mcondedesimon/Documents/PLAYGROUND/tf_causalty/NOTEBOOKS/make_churn_mock_data.ipynb), [NOTEBOOK EDA](c:/Users/mcondedesimon/Documents/PLAYGROUND/tf_causalty/NOTEBOOKS/eda_churn_mock_data.ipynb))
+:::
+
+::: {.column width="50%"}
+**Variables disponibles**
+
++ Sociodemográficas: edad, sexo, nivel educativo, ingresos, etc.
++ Geográficas y de contexto: región, presencia de competidores.
++ Relación con la empresa: antigüedad, tipo de contrato, etc.
++ Insatisfacción: flag de insatisfacción, *score* de riesgo.
++ Tratamiento: si recibió le intervención de la Unidad de Recuperación.
++ Resultado: si se quedó o se fue.
+:::
+:::
+
+## ¿Cómo lo harías tú?
+
+Dado lo que has visto del dataset y sabiendo que la asignación de la intervención no fue aleatoria, ¿qué enfoque propondrías para estimar de forma confiable el efecto causal de la intervención en la retención del cliente?
+
+1. Utilizar únicamente a los clientes que recibieron la intervención, evaluando cuántos se quedaron frente a cuántos se fueron.
+2. Comparar directamente clientes intervenidos con clientes no intervenidos, sin controlar por otras variables.
+3. Realizar una comparación ajustando (controlando) por variables importantes como edad, ingresos o riesgo de fuga.
+4. Buscar o crear un grupo comparable de clientes que no recibieron la intervención y compararlo con el grupo intervenido.
+5. No se puede estimar el efecto causal de forma fiable con estos datos.
+
+# Un ejemplo más sencillo
+
+## Helados y muertes por ahogamiento {.smaller}
+
+::: columns
+::: {.column width="40%"}
+**Datos anuales**
+
+| Helados vendidos ($\times{10}^6$) | Muertes por ahogamiento |
+|-----------------------------------|-------------------------|
+| 200                               | 10                      |
+| 250                               | 15                      |
+| 300                               | 20                      |
+| 350                               | 25                      |
+| ...                               | ...                     |
+
+La correlación entre ambas variables es $0.67$ ([NOTEBOOK mock data](c:/Users/mcondedesimon/Documents/PLAYGROUND/tf_causalty/NOTEBOOKS/make_icecreams_drowning_mock_data.ipynb), [NOTEBOOK EDA](c:/Users/mcondedesimon/Documents/PLAYGROUND/tf_causalty/NOTEBOOKS/eda_icecreams_drownings.ipynb)).
+:::
+
+::: {.column width="60%"}
+**¿Qué preguntas podemos responder con los datos de la tabla?**
+
+-   ¿Cuántos ahogamientos esperamos en función del número de helados vendidos? Y ¿viceversa?
+-   Con 200 M de helados vendidos se produjeron 10 muertes. ¿Cuánto efecto tuvo el número de helados en el de muertes?
+-   Con 250 M de helados vendidos se produjeron 15 ahogamientos. ¿Cuántos esperamos si vendemos el doble de helados? Y ¿si vendemos la mitad?
+-   Con 300 millones de helados vendidos hubo 20 muertes ¿Cuántas hubiera habido si hubiéramos vendido 400 M de helados?
+:::
+:::
+
+## Tipos de preguntas - Asociación
+
+***Seeing*** **- Observación / Correlación**
+
+Este nivel se basa únicamente en correlaciones y patrones en los datos sin inferir causalidad. Aquí, utilizamos estadísticas descriptivas y modelos de predicción (correlación, predicción, forecasting...).
+
+-   *¿Cuántas muertes por ahogamiento esperamos en función del número de helados vendidos? (predicción). Y ¿viceversa?*
+
+## Tipos de preguntas - Intervención
+
+***Doing*** **- Experimentos / Manipulación**
+
+Aquí nos preguntamos qué pasaría si intervenimos activamente en el sistema, modificando una variable de manera externa.
+
+-   *Con 250 M de helados vendidos se produjeron 15 muertes. ¿Cuántas esperamos si vendemos el doble de helados? Y ¿si vendemos la mitad?*
+
+## Tipos de preguntas - Contrafactuales
+
+***Imagining*** **- "¿Qué hubiera pasado si...?"**
+
+Este nivel implica responder preguntas hipotéticas sobre escenarios alternativos que no ocurrieron en la realidad.
+
+-   *Con 200 M de helados vendidos se produjeron 10 muertes. ¿Cuánto efecto (causal) tuvo el número de helados vendidos en el de ahogamientos?*
+-   *Con 300 M de helados vendidos hubo 20 muertas¿Cuántos hubiera habido si hubiéramos vendido 400 M de helados?*
+
+## ¿Cuál es el modelo CAUSAL implícito en nuestra mente?
+
+::: columns
+::: {.column width="50%"}
+```{r, echo=FALSE, fig.width=5, fig.height=5}
+library(tidyverse)
+library(ggdag)
+
+dagify(
+  y ~ x, 
+  exposure = "y",
+  coords = time_ordered_coords(
+    list(
+      "x", 
+      "y")
+  ),
+  labels = c(
+    x = "Helados", 
+    y = "Ahogamientos"
+    )
+  ) |>
+  ggdag(use_labels = "label", text = FALSE) +
+  theme_dag() 
+```
+:::
+
+::: {.column width="50%"}
+```{r, echo=FALSE, fig.width=5, fig.height=5}
+dagify(
+  y ~ z,
+  x ~ z,
+  exposure = "y",
+  coords = time_ordered_coords(
+    list(
+      "z", 
+      c("x","y"))
+    ),
+  labels = c(
+    x = "Helados", 
+    y = "Ahogamientos",
+    z = "Temperatura"
+    )
+  ) |>
+  ggdag(use_labels = "label", text = FALSE) +
+  theme_dag() 
+```
+:::
+:::
+
+## Qué pasa si las cosas se complican
+
+```{r, echo=FALSE, fig.width=5, fig.height=5}
+dagify(
+    target ~ mkt + comp + X1 + Xmas,
+    X2 ~ X1 + comp + Xmas,
+    X1 ~ Xmas,
+    exposure = "target", 
+    latent = c("comp", "Xmas", "mkt"),
+    coords = time_ordered_coords(
+      list(
+        c("mkt", "comp", "Xmas"), 
+        "X1", 
+        "X2", 
+        "target"
+      )
+    ), 
+    labels = c(
+      mkt = "Market Growth", 
+      comp = "Competitors Offers", 
+      X1 = "Media 1", 
+      X2 = "Media 2", 
+      Xmas = "Christmas", 
+      target = "Sales"
+    )
+) |>
+  ggdag(use_labels = "label", text = FALSE) +
+  theme_dag() 
+```
+
+## Conceptos clave: Predicción vs Inferencia causal:
+
++ Una correlación nos permite predecir con precisión un evento basado en otro, pero no implica que uno cause al otro.
+
++ Ejemplo: Si sabemos que hay muchas ventas de helados, podemos predecir un aumento en ahogamientos, pero esto no significa que vender helados cause ahogamientos.
+
+## Conceptos clave: Correlación ≠ Causalidad:
+
++ Dos variables pueden estar asociadas debido a una tercera variable oculta.
+
++ Introducir aquí la variable oculta: la temperatura media mensual, como una posible explicación detrás de ambas variables observadas.
+
+## Conceptos clave: Concepto de *Confounder* (Confundidor):
+
++ Variable que afecta simultáneamente tanto a la causa aparente como al efecto aparente.
+
++ En nuestro caso, la temperatura actúa como un confundidor:
+
+  + Más calor ➜ más ventas de helados.
+
+  + Más calor ➜ más gente nadando, más riesgo de ahogamientos.
+
+## Escalera causal de Judea Pearl
+
++ **Nivel 1: Asociación** (*¿Qué ocurre?*): Correlaciones observadas, como entre helados y ahogamientos.
+
++ **Nivel 2: Intervención** (*¿Qué ocurre si hacemos algo?*): Evaluamos qué sucede al intervenir activamente, por ejemplo, prohibiendo la venta de helados para ver si cambian las muertes por ahogamiento.
+
++ **Nivel 3: Contrafactual** (*¿Qué habría pasado si hubiera sido diferente?*): Pensamos en escenarios alternativos, como cuántas muertes habrían ocurrido si la temperatura hubiera sido diferente.
+
+Este marco ayuda a distinguir claramente entre **predicción (asociación)** e **inferencia causal (intervención y contrafactual)**.
+
+## Conclusiones clave del caso
+
++ No toda correlación implica causalidad.
+
++ Es esencial identificar y ajustar confundidores para inferir relaciones causales.
+
++ La inferencia causal requiere un nivel de análisis más profundo que la mera predicción basada en correlaciones.
+
+## Otro
+
+```{python}
+#| eval: false
+from graphviz import Digraph
+
+# Initialize a directed graph
+dot = Digraph()
+
+# Add nodes
+dot.node("C", "Christmas", style="dashed")
+dot.node("X1", "Marketing Impressions X1")
+dot.node("X2", "Marketing Impressions X2")
+dot.node("I", "Competitor Offers", style="dashed")
+dot.node("G", "Market Growth", style="dashed")
+dot.node("T", "Target")
+
+# Add edges to represent the relationships
+dot.edge("C", "X1", style="dashed")
+dot.edge("C", "X2", style="dashed")
+dot.edge("I", "X2", style="dashed")
+dot.edge("X1", "X2")
+
+## Variables that affect the target
+dot.edge("C", "T", style="dashed")
+dot.edge("X1", "T")
+dot.edge("X2", "T")
+dot.edge("I", "T", style="dashed")
+dot.edge("G", "T", style="dashed")
+
+# Render the graph to SVG and display it inline
+svg_str = dot.pipe(format="svg")
+display(SVG(svg_str))
+```
+
+# DAGs y Estructuras Causales
+
+## *Fork* - El *confounder* de toda la vida
+
+::: columns
+::: {.column width="40%"}
+![](images/fork_example.png)
+
+<center>$X \leftarrow Z \rightarrow Y$</center>
+
+[NOTEBOOK](c:/Users/mcondedesimon/Documents/PLAYGROUND/tf_causalty/NOTEBOOKS/forks_chains_colliders.ipynb)
+:::
+
+::: {.column width="60%"}
++ Si no hacemos nada, $Z$ está "abierta": $Y$ puede "escuchar" a $X$ debido a la influencia común de $Z$: es una asociación espuria, no causal.
++ Cuando controlamos por $Z$, la "cerramos": eliminamos la asociación espuria entre $X$ e $Y$.
+:::
+:::
+
+## *Chain* - La *mediación*
+::: columns
+::: {.column width="40%"}
+![](images/chain_example.png)
+<center>$X \rightarrow Z \rightarrow Y$</center>
+
+[NOTEBOOK](c:/Users/mcondedesimon/Documents/PLAYGROUND/tf_causalty/NOTEBOOKS/forks_chains_colliders.ipynb)
+:::
+
+::: {.column width="60%"}
++ Si no hacemos nada, $Z$ está "abierta": $Y$ puede "escuchar" a $X$, que es su causa indirecta a través de $Z$.
++ Cuando controlamos por $Z$, la "cerramos": eliminamos la asociación causal indirecta entre $X$ e $Y$.
+:::
+:::
+
+## *Collider* 
+
+::: columns
+::: {.column width="40%"}
+![](images/collider_example.png)
+<center>$X \rightarrow Z \leftarrow Y$</center>
+
+[NOTEBOOK](c:/Users/mcondedesimon/Documents/PLAYGROUND/tf_causalty/NOTEBOOKS/forks_chains_colliders.ipynb)
+:::
+
+::: {.column width="60%"}
++ Si no hacemos nada, $Z$ está "cerrada": $X$ y $Y$ son independientes, no hay asociación entre ellos.
++ Si controlamos por $Z$, la "abrimos": $X$ y $Y$ pueden "escucharse": se crea una relación espuria, no causal. 
+:::
+:::
+
+## Independencia condicional
+
++ *Confounder* $Z$: $X \leftarrow Z \rightarrow Y$
+  + $X \not\perp Y$, $X \perp Y | Z$
++ *Chain* $Z$: $X \rightarrow Z \rightarrow Y$
+  + $X \not\perp Y$, $X \perp Y | Z$
++ *Collider* $Z$: $X \rightarrow Z \leftarrow Y$
+  + $X \perp Y$, $X \not\perp Y | Z$
+
+# Dagitty
+
+## Un ejemplo ¿más complejo?
+
+::: columns
+::: {.column width="40%"}
++ ¿Qué tengo que hacer si quiero identificar el efecto causal de $X$ sobre $Y$?
++ [DAGitty](https://www.dagitty.net/): herramienta para crear y analizar gráficos acíclicos dirigidos (DAGs) que representan relaciones causales. 
+:::
+
+::: {.column width="60%"}
+<center>
+![](images/causal_model.png)
+</center>
+:::
+:::
+
+## Otros criterios
+
++ **Backdoor criterion**
++ **Frontdoor criterion**
++ **Instrumental variable** 
+
+## Efectos directos e indirectos
+
++ **Efecto total**: efecto de $X$ sobre $Y$.
++ **Efecto directo**: efecto de $X$ sobre $Y$ que no pasa por $Z$.
++ **Efecto indirecto**: efecto de $X$ sobre $Y$ que pasa por $Z$.
+
+[Notebook](c:/Users/mcondedesimon/Documents/PLAYGROUND/tf_causalty/NOTEBOOKS/ejemplo_efectos_directo_indirecto.ipynb)
+
+
+# El caso de la fuga de clientes 
+
+## En R (Dagitty)
+
++ Librería [dagitty](https://cran.r-project.org/web/packages/dagitty/index.html)
+  + [Página oficial](https://www.dagitty.net/)
+
+
+[Notebook](c:/Users/mcondedesimon/Documents/PLAYGROUND/tf_causalty/NOTEBOOKS/estimations_dagitty.ipynb)
+
+## En python (doWhy, econML)
+
+1. Pregunta inicial
+2. Estimando
+3. Estimador
+4. Esticmación
+5. Refutación
+
+[Notebook](c:/Users/mcondedesimon/Documents/PLAYGROUND/tf_causalty/NOTEBOOKS/estimations_do_why.ipynb)
+
+
+# Go beyond
+
++ Causal discovery
+
+# Referencias
